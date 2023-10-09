@@ -1,104 +1,100 @@
-// Create an infinite scrolling lazily loaded list
-
 import 'package:flutter/material.dart';
-import 'package:english_words/english_words.dart';
 
-void main() => runApp(const MyApp());
+import 'data.dart';
 
-class MyApp extends StatelessWidget {
-  const MyApp({super.key});
+void main() {
+  runApp(const DocumentApp());
+}
+
+class DocumentApp extends StatelessWidget {
+  const DocumentApp({super.key});
 
   @override
   Widget build(BuildContext context) {
     return MaterialApp(
-      title: 'Startup Name Generator',
-      theme: ThemeData(
-          colorScheme: ColorScheme.fromSeed(seedColor: Colors.purple)),
-      home: const RandomWords(),
+      theme: ThemeData(useMaterial3: true),
+      home: DocumentScreen(
+        document: Document(),
+      ),
     );
   }
 }
 
-class RandomWords extends StatefulWidget {
-  const RandomWords({super.key});
+class DocumentScreen extends StatelessWidget {
+  final Document document;
 
-  @override
-  RandomWordsState createState() => RandomWordsState();
-}
-
-class RandomWordsState extends State<RandomWords> {
-  final List<WordPair> _suggestions = <WordPair>[];
-  final Set<WordPair> _saved = Set<WordPair>();
-  final TextStyle _biggerFont = const TextStyle(fontSize: 18.0);
+  const DocumentScreen({
+    required this.document,
+    super.key,
+  });
 
   @override
   Widget build(BuildContext context) {
+    final (title, :modified) = document.metadata;
+    final formattedModifiedDate = formatDate(modified);
+    final blocks = document.getBlocks();                           // Add this line
+
     return Scaffold(
       appBar: AppBar(
-        title: const Text('Startup Name Generator'),
-        actions: <Widget>[
-          IconButton(icon: const Icon(Icons.list), onPressed: _pushSaved),
-          const SizedBox(
-            width: 32,
-          )
+        title: Text(title),
+      ),
+      body: Column(
+        children: [
+          Text('Last modified: $formattedModifiedDate'),                        // Modify from here
+          Expanded(
+            child: ListView.builder(
+              itemCount: blocks.length,
+              itemBuilder: (context, index) {
+                return BlockWidget(block: blocks[index]);
+              },
+            ),
+          ),                                                       // to here.
         ],
       ),
-      body: _buildSuggestions(),
     );
   }
+}
 
-  void _pushSaved() {
-    Navigator.of(context)
-        .push(MaterialPageRoute<void>(builder: (BuildContext context) {
-      final Iterable<ListTile> tiles = _saved.map(
-        (WordPair pair) {
-          return ListTile(title: Text(pair.asPascalCase, style: _biggerFont));
-        },
-      );
-      final List<Widget> divided =
-          ListTile.divideTiles(context: context, tiles: tiles).toList();
+class BlockWidget extends StatelessWidget {
+  final Block block;
 
-      return Scaffold(
-          appBar: new AppBar(
-            title: const Text('Saved Suggestions'),
+  const BlockWidget({
+    required this.block,
+    super.key,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      margin: const EdgeInsets.all(8),
+      child: switch (block) {
+        HeaderBlock(:final text) => Text(
+            text,
+            style: Theme.of(context).textTheme.displayMedium,
           ),
-          body: ListView(children: divided));
-    }));
+        ParagraphBlock(:final text) => Text(text),
+        CheckboxBlock(:final text, :final isChecked) => Row(
+            children: [
+              Checkbox(value: isChecked, onChanged: (_) {}),
+              Text(text),
+            ],
+          ),
+      },
+    );
   }
+}
 
-  Widget _buildSuggestions() {
-    return ListView.builder(
-        padding: const EdgeInsets.all(16.0),
-        itemBuilder: (BuildContext context, int i) {
-          if (i.isOdd) {
-            return const Divider();
-          }
-          final int index = i ~/ 2;
-          if (index >= _suggestions.length) {
-            _suggestions.addAll(generateWordPairs().take(10));
-          }
-          return _buildRow(_suggestions[index]);
-        });
-  }
+String formatDate(DateTime dateTime) {
+  final today = DateTime.now();
+  final difference = dateTime.difference(today);
 
-  Widget _buildRow(WordPair pair) {
-    final bool alreadySaved = _saved.contains(pair);
-
-    return ListTile(
-        title: Text(
-          pair.asPascalCase,
-          style: _biggerFont,
-        ),
-        trailing: Icon(alreadySaved ? Icons.favorite : Icons.favorite_border,
-            color: alreadySaved ? Colors.red : null),
-        onTap: () => {
-              setState(() {
-                if (alreadySaved) {
-                  _saved.remove(pair);
-                } else {
-                  _saved.add(pair);
-                }
-              })
-            });
-  }
+  return switch (difference) {
+    Duration(inDays: 0) => 'today',
+    Duration(inDays: 1) => 'tomorrow',
+    Duration(inDays: -1) => 'yesterday',
+    Duration(inDays: final days) when days > 7 => '${days ~/ 7} weeks from now',
+    Duration(inDays: final days) when days < -7 => '${days.abs() ~/ 7} weeks ago',
+    Duration(inDays: final days, isNegative: true) => '${days.abs()} days ago',
+    Duration(inDays: final days) => '$days days from now',
+  };
 }
