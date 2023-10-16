@@ -28,9 +28,7 @@ class Document {
 }
 
 sealed class Block {
-  final String type;
-  final String text;
-  Block(this.type, this.text);
+  Block();
 
   factory Block.fromJson(Map<String, dynamic> json) {
     return switch (json) {
